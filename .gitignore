@@ -194,3 +194,4 @@ lora_model
 gpt_key
 node_modules
 *.mp4
+unsloth_compiled_cache

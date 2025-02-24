@@ -1,2 +1,10 @@
 ipywidgets
 ipykernel
+bitsandbytes==0.45.2
+accelerate==1.4.0
+xformers==0.0.29
+peft==0.14.0
+trl==0.15.1
+triton==3.1.0
+unsloth-zoo==2025.2.7
+unsloth==2025.2.15
