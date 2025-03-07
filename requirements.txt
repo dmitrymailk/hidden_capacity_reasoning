@@ -10,3 +10,4 @@ unsloth-zoo==2025.2.7
 unsloth==2025.2.15
 sentence-transformers==3.4.1
 faiss-cpu==1.10.0
+spacy==3.8.4
