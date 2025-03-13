@@ -14,3 +14,4 @@ spacy==3.8.4
 more-itertools==10.6.0
 transformers==4.49.0
 qwen-vl-utils[decord]==0.0.10
+wandb==0.19.8
