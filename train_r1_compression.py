@@ -154,6 +154,9 @@ def find_all_linear_names_v2(model):
             "k_proj",
             "v_proj",
             "o_proj",
+            "gate_proj",
+            "up_proj",
+            "down_proj",
         ]
     )
     for name, module in model.named_modules():
@@ -189,9 +192,9 @@ def main():
     gc.collect()
     torch.cuda.empty_cache()
 
-    dataset = load_dataset("dim/open_orca_905_DeepSeek-R1-Distill-Qwen-1.5B")
+    dataset = load_dataset("dim/open_orca_4475_DeepSeek-R1-Distill-Qwen-1.5B")
     dataset = dataset["train"]
-    dataset = dataset.train_test_split(test_size=5, seed=42)
+    dataset = dataset.train_test_split(test_size=1000, seed=42)
 
     # test pass
     tokenize_single_turn(
@@ -207,7 +210,9 @@ def main():
     prepared_train_examples = []
     for item in tqdm(train_examples):
         for example in generate_train_examples(
-            dataset_batch=[item], tokenizer=tokenizer, window_size=4
+            dataset_batch=[item],
+            tokenizer=tokenizer,
+            window_size=WINDOW_SIZE,
         ):
             prepared_train_examples.append(example)
 

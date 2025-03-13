@@ -2,7 +2,7 @@ import numpy as np
 
 TEXT_TOKEN_ID = 151662
 EOS_TOKEN_ID = 151643
-WINDOW_SIZE = 4
+WINDOW_SIZE = 10
 
 
 def tokenize_single_turn(
@@ -75,7 +75,6 @@ def tokenize_single_turn(
 
 def generate_train_examples(
     dataset_batch: list,
-    tokenizer=None,
     text_token_id: int = TEXT_TOKEN_ID,
     window_size: int = WINDOW_SIZE,
     train_examples_amount: int = -1,
