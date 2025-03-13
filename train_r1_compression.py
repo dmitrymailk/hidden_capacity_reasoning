@@ -211,7 +211,6 @@ def main():
     for item in tqdm(train_examples):
         for example in generate_train_examples(
             dataset_batch=[item],
-            tokenizer=tokenizer,
             window_size=WINDOW_SIZE,
         ):
             prepared_train_examples.append(example)
