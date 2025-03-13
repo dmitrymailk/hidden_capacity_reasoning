@@ -34,6 +34,9 @@ from peft import (
 )
 from hidden_capacity_reasoning.utils import EOS_TOKEN_ID, TEXT_TOKEN_ID, WINDOW_SIZE
 
+import time
+from datetime import datetime
+
 
 class Qwen2ModelEmbedPoolerV1(Qwen2ForCausalLM):
     def __init__(self, config):
@@ -92,7 +95,7 @@ class Qwen2ForCausalLMCompressionV1(Qwen2ForCausalLM):
         return_dict=None,
         cache_position=None,
         logits_to_keep=0,
-        **kwargs
+        **kwargs,
     ):
         if "replaced_original_tokens" in kwargs:
             original_tokens_torch = kwargs["original_tokens"].to(self.model.device)
@@ -139,7 +142,7 @@ class Qwen2ForCausalLMCompressionV1(Qwen2ForCausalLM):
             return_dict,
             cache_position,
             logits_to_keep,
-            **kwargs
+            **kwargs,
         )
 
 
@@ -245,6 +248,10 @@ def main():
         target_modules=find_all_linear_names_v2(model=model),
     )
 
+    formatted_date = datetime.fromtimestamp(time.time()).strftime(
+        "%Y_%m_%d_%H_%M_%S_%f"
+    )
+
     trainer = SFTTrainer(
         model=model,
         tokenizer=tokenizer,
@@ -260,17 +267,18 @@ def main():
             learning_rate=1e-4,
             bf16=model.dtype == torch.bfloat16,
             fp16=model.dtype == torch.float16,
-            logging_steps=4,
+            logging_steps=8,
             optim="adamw_8bit",
             weight_decay=0.01,
             lr_scheduler_type="linear",
             seed=3407,
-            output_dir="outputs",
+            output_dir=f"outputs/{formatted_date}",
             report_to="wandb",
             remove_unused_columns=False,
             dataset_kwargs={"skip_prepare_dataset": True},
             gradient_checkpointing=True,
             save_steps=10000,
+            run_name=formatted_date,
         ),
     )
     trainer.train()
