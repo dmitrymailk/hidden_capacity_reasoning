@@ -1,0 +1,1 @@
+python -m train_r1_compression > hidden_capacity_reasoning.log 2>&1 &
