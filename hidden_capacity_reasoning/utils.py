@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 
 TEXT_TOKEN_ID = 151662
 EOS_TOKEN_ID = 151643
@@ -176,3 +177,25 @@ def pad_train_examples(
             # return_tensors="pt",
         )
     return new_inputs
+
+
+def find_all_linear_names_v2(model):
+    lora_module_names = set()
+    target_modules = set(
+        [
+            "q_proj",
+            "k_proj",
+            "v_proj",
+            "o_proj",
+            "gate_proj",
+            "up_proj",
+            "down_proj",
+        ]
+    )
+    for name, module in model.named_modules():
+        if isinstance(module, torch.nn.Linear):
+            if "embed_pooler" in name:
+                names = name.split(".")[-1]
+                if names in target_modules:
+                    lora_module_names.add(name)
+    return lora_module_names

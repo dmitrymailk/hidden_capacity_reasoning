@@ -73,9 +73,9 @@ def main():
     gc.collect()
     torch.cuda.empty_cache()
 
-    dataset = load_dataset("dim/open_orca_4475_DeepSeek-R1-Distill-Qwen-1.5B")
+    dataset = load_dataset("dim/open_orca_905_DeepSeek-R1-Distill-Qwen-1.5B")
     dataset = dataset["train"]
-    dataset = dataset.train_test_split(test_size=1000, seed=42)
+    dataset = dataset.train_test_split(test_size=10, seed=42)
 
     # test pass
     tokenize_single_turn(
@@ -85,7 +85,7 @@ def main():
     )
     train_examples = [
         tokenize_single_turn(tokenizer=tokenizer, **item)
-        for item in tqdm(dataset["train"].to_list())
+        for item in tqdm(dataset["train"].to_list()[:3])
     ]
 
     prepared_train_examples = []
@@ -136,6 +136,8 @@ def main():
     formatted_date = datetime.fromtimestamp(time.time()).strftime(
         "%Y_%m_%d_%H_%M_%S_%f"
     )
+    peft_model = get_peft_model(model, peft_config)
+    peft_model.print_trainable_parameters()
 
     trainer = SFTTrainer(
         model=model,
@@ -145,7 +147,7 @@ def main():
         peft_config=peft_config,
         args=SFTConfig(
             per_device_train_batch_size=2,
-            gradient_accumulation_steps=8,
+            gradient_accumulation_steps=2,
             warmup_steps=5,
             num_train_epochs=2,  # Set this for 1 full training run.
             # max_steps=10000,
@@ -158,8 +160,8 @@ def main():
             lr_scheduler_type="linear",
             seed=3407,
             output_dir=f"outputs/{formatted_date}",
-            report_to="wandb",
-            # report_to="none",
+            # report_to="wandb",
+            report_to="none",
             remove_unused_columns=False,
             dataset_kwargs={"skip_prepare_dataset": True},
             gradient_checkpointing=True,
