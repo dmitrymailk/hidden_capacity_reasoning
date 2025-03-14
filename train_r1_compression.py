@@ -263,8 +263,8 @@ def main():
         data_collator=collate_fn,
         peft_config=peft_config,
         args=SFTConfig(
-            per_device_train_batch_size=1,
-            gradient_accumulation_steps=4,
+            per_device_train_batch_size=2,
+            gradient_accumulation_steps=8,
             warmup_steps=5,
             num_train_epochs=2,  # Set this for 1 full training run.
             # max_steps=10000,
@@ -278,6 +278,7 @@ def main():
             seed=3407,
             output_dir=f"outputs/{formatted_date}",
             report_to="wandb",
+            # report_to="none",
             remove_unused_columns=False,
             dataset_kwargs={"skip_prepare_dataset": True},
             gradient_checkpointing=True,
