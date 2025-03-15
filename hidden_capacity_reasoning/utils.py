@@ -3,7 +3,7 @@ import torch
 
 TEXT_TOKEN_ID = 151662
 EOS_TOKEN_ID = 151643
-WINDOW_SIZE = 10
+WINDOW_SIZE = 20
 
 
 def tokenize_single_turn(
