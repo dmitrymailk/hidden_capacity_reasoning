@@ -199,3 +199,26 @@ def find_all_linear_names_v2(model):
                 if names in target_modules:
                     lora_module_names.add(name)
     return lora_module_names
+
+
+def find_all_linear_names_v3(model):
+    lora_module_names = set()
+    target_modules = set(
+        [
+            "q_proj",
+            "k_proj",
+            "v_proj",
+            "o_proj",
+            "gate_proj",
+            "up_proj",
+            "down_proj",
+            "embed_tokens",
+        ]
+    )
+    for name, module in model.named_modules():
+        if "embed_pooler" in name:
+            names = name.split(".")[-1]
+            if names in target_modules:
+                lora_module_names.add(name)
+        # if isinstance(module, torch.nn.Linear):
+    return lora_module_names

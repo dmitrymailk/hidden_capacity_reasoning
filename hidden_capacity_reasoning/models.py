@@ -161,6 +161,7 @@ class Qwen2ForCausalLMCompressionV2(Qwen2ForCausalLM):
             config._name_or_path,
             config=config,
             attn_implementation="flash_attention_2",
+            quantization_config=BitsAndBytesConfig(load_in_4bit=True),
         )
 
         # Initialize weights and apply final processing

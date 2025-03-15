@@ -37,6 +37,7 @@ from hidden_capacity_reasoning.utils import (
     TEXT_TOKEN_ID,
     WINDOW_SIZE,
     find_all_linear_names_v2,
+    find_all_linear_names_v3,
 )
 
 import time
@@ -46,12 +47,14 @@ from datetime import datetime
 from hidden_capacity_reasoning.models import (
     Qwen2ForCausalLMCompressionV1,
     Qwen2ModelEmbedPoolerV1,
+    Qwen2ForCausalLMCompressionV2,
+    Qwen2ModelEmbedPoolerV2,
 )
 
 
 def main():
     model_name = "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
-    model = Qwen2ForCausalLMCompressionV1.from_pretrained(
+    model = Qwen2ForCausalLMCompressionV2.from_pretrained(
         model_name,
         torch_dtype=torch.bfloat16,
         device_map={"": 0},
@@ -61,11 +64,12 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model.model.requires_grad_(False)
 
-    temp_model = Qwen2ModelEmbedPoolerV1.from_pretrained(
+    temp_model = Qwen2ModelEmbedPoolerV2.from_pretrained(
         model_name,
         attn_implementation="flash_attention_2",
         torch_dtype=torch.bfloat16,
         device_map={"": 0},
+        quantization_config=BitsAndBytesConfig(load_in_4bit=True),
     )
     print(model.embed_pooler.load_state_dict(temp_model.state_dict()))
     temp_model = temp_model.cpu()
@@ -101,7 +105,7 @@ def main():
         max([len(item["original_tokens"]) for item in prepared_train_examples]),
     )
 
-    dataset = Dataset.from_list(prepared_train_examples)
+    new_dataset = Dataset.from_list(prepared_train_examples)
     print(dataset)
 
     def collate_fn(batch):
@@ -127,29 +131,33 @@ def main():
         return padded_batch
 
     peft_config = LoraConfig(
-        r=16,
+        r=4,
         lora_alpha=16,
         lora_dropout=0.0,
-        target_modules=find_all_linear_names_v2(model=model),
+        bias="none",
+        target_modules=find_all_linear_names_v3(model=model),
+        modules_to_save=["embed_pooler.model.embed_tokens"],
     )
 
     formatted_date = datetime.fromtimestamp(time.time()).strftime(
         "%Y_%m_%d_%H_%M_%S_%f"
     )
+    model.embed_pooler = prepare_model_for_kbit_training(model.embed_pooler)
     peft_model = get_peft_model(model, peft_config)
     peft_model.print_trainable_parameters()
 
     trainer = SFTTrainer(
         model=model,
         tokenizer=tokenizer,
-        train_dataset=dataset,
+        train_dataset=new_dataset,
         data_collator=collate_fn,
         peft_config=peft_config,
         args=SFTConfig(
-            per_device_train_batch_size=2,
-            gradient_accumulation_steps=2,
+            per_device_train_batch_size=1,
+            gradient_accumulation_steps=1,
             warmup_steps=5,
-            num_train_epochs=2,  # Set this for 1 full training run.
+            # num_train_epochs=1,#90,  # Set this for 1 full training run.
+            num_train_epochs=90,  # Set this for 1 full training run.
             # max_steps=10000,
             learning_rate=1e-4,
             bf16=model.dtype == torch.bfloat16,
@@ -164,7 +172,7 @@ def main():
             report_to="none",
             remove_unused_columns=False,
             dataset_kwargs={"skip_prepare_dataset": True},
-            gradient_checkpointing=True,
+            # gradient_checkpointing=True,
             save_steps=10000,
             run_name=formatted_date,
         ),
