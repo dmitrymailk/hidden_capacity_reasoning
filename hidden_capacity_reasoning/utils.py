@@ -1,9 +1,13 @@
 import numpy as np
 import torch
+from more_itertools import chunked, collapse
 
 TEXT_TOKEN_ID = 151662
 EOS_TOKEN_ID = 151643
-WINDOW_SIZE = 20
+WINDOW_SIZE = 10
+VISION_START = 151652
+VISION_END = 151653
+END_THINK_ID = 151649
 
 
 def tokenize_single_turn(
@@ -43,24 +47,33 @@ def tokenize_single_turn(
     ) * [0]
 
     # answer
-    part_4 = answer
+    part_4, part_5 = answer.split("</think>")
+
     content_compression_mask += len(
         tokenizer.encode(
             part_4,
             add_special_tokens=False,
         )
     ) * [2]
-
-    part_5 = "<｜end▁of▁sentence｜>"
+    # </think>
+    content_compression_mask += [0]
     content_compression_mask += len(
         tokenizer.encode(
             part_5,
             add_special_tokens=False,
         )
+    ) * [3]
+
+    part_6 = "<｜end▁of▁sentence｜>"
+    content_compression_mask += len(
+        tokenizer.encode(
+            part_6,
+            add_special_tokens=False,
+        )
     ) * [0]
 
     complete_prompt = ""
-    for part in [part_1, part_2, part_3, part_4, part_5]:
+    for part in [part_1, part_2, part_3, part_4, part_5, part_6]:
         complete_prompt += part
     original_tokens = tokenizer.encode(
         complete_prompt,
@@ -80,79 +93,167 @@ def generate_train_examples(
     window_size: int = WINDOW_SIZE,
     train_examples_amount: int = -1,
 ):
-    aligned_batch = []
+    """
+    1 - часть вопроса
+    2 - часть размышлений
+    3 - часть ответа пользователю
+    """
+    train_examples = []
     # определяем какие именно элементы мы хотим сжимать,а какие
     # не помещаются не помещаются в чанк размером window_size
     # TODO: написать обработку крайних случаев
     for tokens in dataset_batch:
         input_ids = np.array(tokens["input_ids"])
         content_mask = np.array(tokens["content_compression_mask"])
-        user_part = input_ids[content_mask == 1]
-        total_parts = len(user_part) // window_size
-        new_len_part_1 = total_parts * window_size
-        mask_end_pos = np.where(content_mask == 1)[0][-1]
-        # print(content_mask.tolist())
-        content_mask[
-            mask_end_pos - (len(user_part) - new_len_part_1) + 1 : mask_end_pos + 1
-        ] = 0
-        # print(content_mask.tolist())
-        # print(user_part.shape, total_parts, new_len_part_1)
 
-        answer_part = input_ids[content_mask == 2]
-        total_parts = len(answer_part) // window_size
-        new_len_part_2 = total_parts * window_size
-        mask_end_pos = np.where(content_mask == 2)[0][-1]
-        # print(content_mask.tolist())
-        content_mask[
-            mask_end_pos - (len(answer_part) - new_len_part_2) + 1 : mask_end_pos + 1
-        ] = 0
-        # print(content_mask.tolist())
-        # print(answer_part.shape, total_parts, new_len_part_2)
-        # content_mask[content_mask == 2] = 1
-        # print(content_mask.tolist())
-        aligned_batch.append(
-            {
-                "input_ids": tokens["input_ids"],
-                "content_compression_mask": content_mask,
-                "attention_mask": tokens["attention_mask"],
-            }
-        )
-        # break
+        # рассуждение
+        mask_pos_2 = np.where(content_mask == 2)[0]
+        start_pos_2 = mask_pos_2[0]
+        end_pos_2 = mask_pos_2[-1]
+        # ответ
+        mask_pos_3 = np.where(content_mask == 3)[0]
+        start_pos_3 = mask_pos_3[0]
+        end_pos_3 = mask_pos_3[-1]
 
-    train_examples = []
-    for tokens in aligned_batch:
-        input_ids = np.array(tokens["input_ids"])
-        content_mask = np.array(tokens["content_compression_mask"])
-        if train_examples_amount == -1:
-            # -1 от всех кусков, потому что если мы сожмем все части, моделировать
-            # будет нечего
-            train_examples_amount = (
-                content_mask[content_mask == 2].shape[0] // window_size - 1
-            )
-        for chunks_amount in range(train_examples_amount):
-            # фикусируемся на сжатии ответа модели, выбираем 2
-            start_pos = np.where(content_mask == 2)[0][0]
-            input_ids[start_pos : start_pos + (chunks_amount + 1) * window_size] = (
-                text_token_id
-            )
-            compressed_input_ids = input_ids[:start_pos].tolist()
-            compressed_input_ids += [text_token_id] * (chunks_amount + 1)
-            compressed_input_ids += input_ids[
-                start_pos + (chunks_amount + 1) * window_size :
-            ].tolist()
-            # print(text_token_id)
-            # print(" ".join(f"{num:>{8}}" for num in content_mask.tolist()))
-            # print(" ".join(f"{num:>{8}}" for num in input_ids.tolist()))
-            # print(" ".join(f"{num:>{8}}" for num in compressed_input_ids))
-            # print("===")
-            train_examples.append(
-                {
-                    "replaced_original_tokens": input_ids.tolist(),
-                    "compressed_input_ids": compressed_input_ids,
-                    "original_tokens": tokens["input_ids"],
-                }
-            )
-        # break
+        part_2_chunks_pad = []
+        for part_2 in chunked(input_ids[mask_pos_2].tolist(), window_size):
+            if len(part_2) % window_size != 0:
+                part_2 += (window_size - len(part_2)) * [EOS_TOKEN_ID]
+            part_2_chunks_pad.append(part_2)
+        part_2_chunks = list(chunked(input_ids[mask_pos_2].tolist(), window_size))
+
+        part_3_chunks = []
+        # сжимаем все части кроме последнего чанка
+        part_3_chunks = list(chunked(input_ids[mask_pos_3].tolist(), window_size))
+        total_chunks = part_2_chunks + part_3_chunks
+        for compress_parts_amount in range(1, len(total_chunks) - 1):
+            if compress_parts_amount <= len(part_2_chunks):
+                if compress_parts_amount == len(part_2_chunks):
+                    part_2_chunks = part_2_chunks_pad
+                compress_tokens = [text_token_id] * compress_parts_amount
+                compress_tokens = [VISION_START] + compress_tokens + [VISION_END]
+                compressed_input_ids = input_ids[:start_pos_2].tolist()
+                compressed_input_ids += compress_tokens
+
+                replaced_original_tokens = input_ids[:start_pos_2].tolist()
+                replaced_original_tokens += (
+                    [VISION_START]
+                    + compress_parts_amount * [text_token_id] * window_size
+                    + [VISION_END]
+                )
+
+                new_original_tokens = input_ids[:start_pos_2].tolist()
+                new_original_tokens += (
+                    [VISION_START]
+                    + list(collapse(part_2_chunks[:compress_parts_amount]))
+                    + [VISION_END]
+                )
+
+                remain_tokens_2 = list(collapse(part_2_chunks[compress_parts_amount:]))
+                compressed_input_ids += remain_tokens_2
+                compressed_input_ids += [END_THINK_ID]
+
+                replaced_original_tokens += remain_tokens_2
+                replaced_original_tokens += [END_THINK_ID]
+
+                new_original_tokens += remain_tokens_2
+                new_original_tokens += [END_THINK_ID]
+
+                remain_tokens_3 = list(collapse(part_3_chunks))
+                compressed_input_ids += remain_tokens_3
+                compressed_input_ids += [EOS_TOKEN_ID]
+
+                replaced_original_tokens += remain_tokens_3
+                replaced_original_tokens += [EOS_TOKEN_ID]
+
+                new_original_tokens += remain_tokens_3
+                new_original_tokens += [EOS_TOKEN_ID]
+
+                train_examples.append(
+                    {
+                        "replaced_original_tokens": replaced_original_tokens,
+                        "compressed_input_ids": compressed_input_ids,
+                        "original_tokens": new_original_tokens,
+                    }
+                )
+            # но зачем сжимать часть с ответом, она всегда кратно меньше
+            else:
+                # print(tokenizer.decode(replaced_original_tokens))
+                # break
+                # compressed_input_ids
+                # сжимаем всю рассуждающую часть
+                compressed_input_ids = input_ids[:start_pos_2].tolist()
+                compress_tokens = [text_token_id] * len(part_2_chunks_pad)
+                compress_tokens = [VISION_START] + compress_tokens + [VISION_END]
+                compressed_input_ids += compress_tokens
+                compressed_input_ids += [END_THINK_ID]
+
+                # replaced_original_tokens
+                replaced_original_tokens = input_ids[:start_pos_2].tolist()
+                replaced_original_tokens += (
+                    [VISION_START]
+                    + [text_token_id] * len(part_2_chunks_pad) * window_size
+                    + [VISION_END]
+                )
+                replaced_original_tokens += [END_THINK_ID]
+
+                # new_original_tokens
+                new_original_tokens = input_ids[:start_pos_2].tolist()
+                new_original_tokens += (
+                    [VISION_START] + list(collapse(part_2_chunks_pad)) + [VISION_END]
+                )
+                new_original_tokens += [END_THINK_ID]
+
+                # compressed_input_ids
+                compress_tokens = [text_token_id] * (
+                    compress_parts_amount - len(part_2_chunks_pad)
+                )
+                compress_tokens = [VISION_START] + compress_tokens + [VISION_END]
+                compressed_input_ids += compress_tokens
+                compressed_input_ids += list(
+                    collapse(
+                        part_3_chunks[compress_parts_amount - len(part_2_chunks_pad) :]
+                    )
+                )
+                compressed_input_ids += [EOS_TOKEN_ID]
+
+                # replaced_original_tokens
+                compress_tokens = (
+                    [text_token_id]
+                    * (compress_parts_amount - len(part_2_chunks_pad))
+                    * window_size
+                )
+                replaced_original_tokens += (
+                    [VISION_START] + compress_tokens + [VISION_END]
+                )
+                replaced_original_tokens += list(
+                    collapse(
+                        part_3_chunks[compress_parts_amount - len(part_2_chunks_pad) :]
+                    )
+                )
+                replaced_original_tokens += [EOS_TOKEN_ID]
+
+                # new_original_tokens
+                compress_tokens = list(
+                    collapse(
+                        part_3_chunks[: compress_parts_amount - len(part_2_chunks_pad)]
+                    )
+                )
+                new_original_tokens += [VISION_START] + compress_tokens + [VISION_END]
+                new_original_tokens += list(
+                    collapse(
+                        part_3_chunks[compress_parts_amount - len(part_2_chunks_pad) :]
+                    )
+                )
+                new_original_tokens += [EOS_TOKEN_ID]
+
+                train_examples.append(
+                    {
+                        "replaced_original_tokens": replaced_original_tokens,
+                        "compressed_input_ids": compressed_input_ids,
+                        "original_tokens": new_original_tokens,
+                    }
+                )
     return train_examples
 
 
