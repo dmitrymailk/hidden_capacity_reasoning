@@ -149,7 +149,7 @@ def main():
     formatted_date = datetime.fromtimestamp(time.time()).strftime(
         "%Y_%m_%d_%H_%M_%S_%f"
     )
-    model.embed_pooler = prepare_model_for_kbit_training(model.embed_pooler)
+
     peft_model = get_peft_model(model, peft_config)
     peft_model.print_trainable_parameters()
 
@@ -160,14 +160,15 @@ def main():
         data_collator=collate_fn,
         peft_config=peft_config,
         args=SFTConfig(
-            per_device_train_batch_size=2,
-            gradient_accumulation_steps=2,
+            per_device_train_batch_size=1,
+            gradient_accumulation_steps=4,
             warmup_steps=5,
             # num_train_epochs=1,  # 90,  # Set this for 1 full training run.
             num_train_epochs=90,  # Set this for 1 full training run.
             # max_steps=10000,
             learning_rate=1e-4,
-            bf16=model.dtype == torch.bfloat16,
+            # bf16=model.dtype == torch.bfloat16,
+            bf16=True,
             # fp16=model.dtype == torch.float16,
             logging_steps=8,
             optim="adamw_8bit",
@@ -179,7 +180,7 @@ def main():
             # report_to="none",
             remove_unused_columns=False,
             dataset_kwargs={"skip_prepare_dataset": True},
-            # gradient_checkpointing=True,
+            gradient_checkpointing=True,
             save_steps=10000,
             run_name=formatted_date,
         ),
