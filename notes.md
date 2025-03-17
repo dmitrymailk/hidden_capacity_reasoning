@@ -110,3 +110,115 @@ inputs_embeds = compressed_embeds_template
 ```
 - где <|vision_start|><|fim_pad|><|vision_end|> это сжатая часть, где сжатие происходит с окнов в 10 токенов
 
+##### Инференс 
+- выглядит следующим образом. генерим токенов размер окна+еще доп несколько токенов
+```python
+from hidden_capacity_reasoning.utils import WINDOW_SIZE, VISION_START, VISION_END
+
+
+# model = trainer.model
+generated_tokens = tokenizer.apply_chat_template(
+    [
+        # {"role": "user", "content": "how many wings has a bird?"},
+        {"role": "user", "content": dataset["train"].to_list()[:5][0]["question"]},
+    ],
+    tokenize=True,
+    add_generation_prompt=True,
+)
+
+with torch.no_grad(), torch.autocast(device_type="cuda"):
+    start_embed = model.base_model.embed_pooler.model.get_input_embeddings()(
+        torch.tensor([[VISION_START]], device="cuda")
+    )
+    end_embed = model.base_model.embed_pooler.model.get_input_embeddings()(
+        torch.tensor([[VISION_END]], device="cuda")
+    )
+    generated_tokens = torch.tensor(generated_tokens).unsqueeze(0).cuda()
+    generated_embeds = model.get_input_embeddings()(generated_tokens)
+    temp_gen_size = 0
+    window_size = WINDOW_SIZE  # + 1
+    new_tokens = 4
+    generation_started = False
+    max_steps = (new_tokens + window_size) * 5
+    print("generated_embeds", generated_embeds.shape)
+    for step in range(max_steps):
+        if temp_gen_size == window_size + new_tokens:
+            print(
+                "TOKENS FOR EMDED",
+                tokenizer.decode(
+                    generated_tokens[:, -(window_size + new_tokens) :][:, :WINDOW_SIZE]
+                    .cpu()
+                    .tolist()[0]
+                ),
+            )
+            # tokenizer.decode(generated_tokens[:, : -window_size ].cpu().tolist()[0])
+            if hasattr(model.base_model, "embed_pooler"):
+                new_embeds_for_compression = (
+                    model.base_model.embed_pooler.model.get_input_embeddings()(
+                        generated_tokens[:, -(window_size + new_tokens) :][
+                            :, :WINDOW_SIZE
+                        ]
+                    )
+                ).to(torch.bfloat16)
+                compressed_part = model.base_model.embed_pooler(
+                    new_embeds_for_compression
+                )
+            else:
+                compressed_part = model.embed_pooler(new_embeds_for_compression)
+
+            if generation_started:
+                generated_embeds = torch.cat(
+                    [
+                        generated_embeds[:, : -(window_size + new_tokens + 1)],
+                        compressed_part,
+                        end_embed,
+                        # torch.randn(1, 1, 1536, device="cuda"),
+                        generated_embeds[:, -new_tokens:],
+                    ],
+                    dim=1,
+                )
+            else:
+                generated_embeds = torch.cat(
+                    [
+                        generated_embeds[:, : -(window_size + new_tokens)],
+                        start_embed,
+                        compressed_part,
+                        end_embed,
+                        # torch.randn(1, 1, 1536, device="cuda"),
+                        generated_embeds[:, -new_tokens:],
+                    ],
+                    dim=1,
+                )
+                generation_started = True
+            temp_gen_size = 1
+
+        logits = model(
+            inputs_embeds=generated_embeds,
+        ).logits
+        top_token = logits.argmax(-1)[-1][-1]
+        top_token_embed = model.get_input_embeddings()(top_token)
+        # print(top)
+        generated_tokens = torch.cat([generated_tokens, top_token.reshape(1, 1)], dim=1)
+
+        generated_embeds = torch.cat(
+            [generated_embeds, top_token_embed.reshape(1, 1, -1)], dim=1
+        )
+        print(temp_gen_size, tokenizer.decode(generated_tokens[-1]))
+
+        temp_gen_size += 1
+
+    # print(tokenizer.decode(generated_tokens[-1]))
+
+# break
+```
+```text
+Okay, so I need to figure out whether the statement "In 1863, Robert E. Lee's Confederate incursion north ended at the Battle of Gettysburg." is a reasonable answer to the question: "What date did the American Civil War start? I remember that the Civil War started in 1863.
+```
+- original text
+```text
+Okay, so I need to figure out whether the statement "In 1863, Robert E. Lee's Confederate incursion north ended at the Battle of Gettysburg." is a reasonable answer to the question: "What date did the American Civil War start?" 
+
+First, I should recall when the American Civil War actually started. I remember that the Civil War began in 1861 when states seceded from the Union to form the Confederate states. So the start date is 1861.
+```
+##### sad story
+- данная генерация это пример на обучающих данных, на которых обучалась модель. причем предложений для обучения в обучающей выборке было 3, а количество эпох 90, но даже так мы не можем полностью запомнить данные, когда обучаем только сжимающую модель.
