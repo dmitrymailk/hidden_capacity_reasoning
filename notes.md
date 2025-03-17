@@ -106,7 +106,13 @@ inputs_embeds = compressed_embeds_template
 ```
 - я же ее переделал в
 ```text
-<｜begin▁of▁sentence｜><｜User｜>ВОПРОС ОТ ПОЛЬЗОВАТЕЛЯ<｜Assistant｜><think>\n<|vision_start|><|fim_pad|><|vision_end|> МОДЕЛИ</think><|vision_start|><|fim_pad|><|vision_end|> КОНЕЧНОМУ ПОЛЬЗОВАТЕЛЮ
+<｜begin▁of▁sentence｜><｜User｜>ВОПРОС ОТ ПОЛЬЗОВАТЕЛЯ<｜Assistant｜><think>\n<|vision_start|><|fim_pad|><|vision_end|> МОДЕЛИ</think>ОТВЕТ КОНЕЧНОМУ ПОЛЬЗОВАТЕЛЮ
+```
+```text
+<｜begin▁of▁sentence｜><｜User｜>ВОПРОС ОТ ПОЛЬЗОВАТЕЛЯ<｜Assistant｜><think>\n<|vision_start|><|fim_pad|><|vision_end|> <|vision_start|><|fim_pad|><|vision_end|></think><|vision_start|><|fim_pad|><|vision_end|> КОНЕЧНОМУ ПОЛЬЗОВАТЕЛЮ
+```
+```text
+<｜begin▁of▁sentence｜><｜User｜>ВОПРОС ОТ ПОЛЬЗОВАТЕЛЯ<｜Assistant｜><think>\n<|vision_start|><|fim_pad|><|vision_end|> <|vision_start|><|fim_pad|><|vision_end|></think><|vision_start|><|fim_pad|><|vision_end|><|vision_start|><|fim_pad|><|vision_end|> ПОЛЬЗОВАТЕЛЮ
 ```
 - где <|vision_start|><|fim_pad|><|vision_end|> это сжатая часть, где сжатие происходит с окнов в 10 токенов
 
