@@ -29,7 +29,13 @@ from peft import (
     get_peft_model,
     prepare_model_for_kbit_training,
 )
-from hidden_capacity_reasoning.utils import EOS_TOKEN_ID, TEXT_TOKEN_ID, WINDOW_SIZE
+from hidden_capacity_reasoning.utils import (
+    EOS_TOKEN_ID,
+    TEXT_TOKEN_ID,
+    WINDOW_SIZE,
+    VISION_START,
+    VISION_END,
+)
 
 
 class Qwen2ModelEmbedPoolerV1(Qwen2ForCausalLM):
@@ -156,12 +162,9 @@ class Qwen2ForCausalLMCompressionV2(Qwen2ForCausalLM):
         self.lm_head = torch.nn.Linear(
             config.hidden_size, config.vocab_size, bias=False
         )
-        # print(config._name_or_path)
-        self.embed_pooler = Qwen2ModelEmbedPoolerV2.from_pretrained(
-            config._name_or_path,
+
+        self.embed_pooler = Qwen2ModelEmbedPoolerV2(
             config=config,
-            attn_implementation="flash_attention_2",
-            quantization_config=BitsAndBytesConfig(load_in_4bit=True),
         )
 
         # Initialize weights and apply final processing
@@ -230,6 +233,25 @@ class Qwen2ForCausalLMCompressionV2(Qwen2ForCausalLM):
                     compressed_embeds_template
                 ),
                 pooled_embeds,
+            )
+            # создаем маску для ембедингов начала и конца
+            compressed_special_tokens_mask = (
+                compressed_tokens_torch == VISION_START
+            ) | (compressed_tokens_torch == VISION_END)
+            # выбираем нужные токены
+            compressed_special_tokens = compressed_tokens_torch[
+                compressed_special_tokens_mask
+            ]
+            # получаем их эмбединги
+            compressed_special_embeds = self.embed_pooler.model.get_input_embeddings()(
+                compressed_special_tokens
+            ).to(compressed_embeds_template.dtype)
+            # копируем их в нужное место
+            compressed_embeds_template = compressed_embeds_template.masked_scatter_(
+                compressed_special_tokens_mask.unsqueeze(-1).expand_as(
+                    compressed_embeds_template
+                ),
+                compressed_special_embeds,
             )
             inputs_embeds = compressed_embeds_template
         return super().forward(

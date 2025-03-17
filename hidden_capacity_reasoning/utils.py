@@ -11,14 +11,10 @@ END_THINK_ID = 151649
 
 
 def tokenize_single_turn(
-    question: str = None,
-    answer: str = None,
+    question,
+    answer,
     tokenizer=None,
 ):
-    """
-    tokenization for r1
-    deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B
-    """
     content_compression_mask = []
 
     part_1 = """<｜begin▁of▁sentence｜><｜User｜>"""
@@ -47,7 +43,7 @@ def tokenize_single_turn(
     ) * [0]
 
     # answer
-    part_4, part_5 = answer.split("</think>")
+    part_4, part_6 = answer.split("</think>")
 
     content_compression_mask += len(
         tokenizer.encode(
@@ -56,24 +52,28 @@ def tokenize_single_turn(
         )
     ) * [2]
     # </think>
+    part_5 = "</think>"
     content_compression_mask += [0]
-    content_compression_mask += len(
-        tokenizer.encode(
-            part_5,
-            add_special_tokens=False,
-        )
-    ) * [3]
-
-    part_6 = "<｜end▁of▁sentence｜>"
     content_compression_mask += len(
         tokenizer.encode(
             part_6,
             add_special_tokens=False,
         )
-    ) * [0]
+    ) * [3]
+
+    part_7 = "<｜end▁of▁sentence｜>"
+    content_compression_mask += [0]
 
     complete_prompt = ""
-    for part in [part_1, part_2, part_3, part_4, part_5, part_6]:
+    for part in [
+        part_1,
+        part_2,
+        part_3,
+        part_4,
+        part_5,
+        part_6,
+        part_7,
+    ]:
         complete_prompt += part
     original_tokens = tokenizer.encode(
         complete_prompt,

@@ -36,7 +36,8 @@ from hidden_capacity_reasoning.utils import (
     EOS_TOKEN_ID,
     TEXT_TOKEN_ID,
     WINDOW_SIZE,
-    find_all_linear_names_v2,
+    VISION_START,
+    VISION_END,
     find_all_linear_names_v3,
 )
 
@@ -69,7 +70,7 @@ def main():
         attn_implementation="flash_attention_2",
         torch_dtype=torch.bfloat16,
         device_map={"": 0},
-        quantization_config=BitsAndBytesConfig(load_in_4bit=True),
+        # quantization_config=BitsAndBytesConfig(load_in_4bit=True),
     )
     print(model.embed_pooler.load_state_dict(temp_model.state_dict()))
     temp_model = temp_model.cpu()
@@ -124,7 +125,12 @@ def main():
         }
         for key in padded_batch.keys():
             padded_batch[key] = torch.tensor(padded_batch[key])
-        skip_ids = [TEXT_TOKEN_ID, EOS_TOKEN_ID]
+        skip_ids = [
+            TEXT_TOKEN_ID,
+            EOS_TOKEN_ID,
+            VISION_START,
+            VISION_END,
+        ]
         for skip_id in skip_ids:
             padded_batch["labels"][padded_batch["labels"] == skip_id] = -100
         # print(padded_batch)
