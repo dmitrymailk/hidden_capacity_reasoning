@@ -91,7 +91,7 @@ def main():
     )
     train_examples = [
         tokenize_single_turn(tokenizer=tokenizer, **item)
-        for item in tqdm(dataset["train"].to_list())
+        for item in tqdm(dataset["train"].to_list()[:2000])
     ]
 
     prepared_train_examples = []
