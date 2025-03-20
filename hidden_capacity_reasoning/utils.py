@@ -174,6 +174,7 @@ def generate_train_examples(
                         "replaced_original_tokens": replaced_original_tokens,
                         "compressed_input_ids": compressed_input_ids,
                         "original_tokens": new_original_tokens,
+                        "content_compression_mask": tokens["content_compression_mask"],
                     }
                 )
             # но зачем сжимать часть с ответом, она всегда кратно меньше
@@ -252,6 +253,7 @@ def generate_train_examples(
                         "replaced_original_tokens": replaced_original_tokens,
                         "compressed_input_ids": compressed_input_ids,
                         "original_tokens": new_original_tokens,
+                        "content_compression_mask": tokens["content_compression_mask"],
                     }
                 )
     return train_examples

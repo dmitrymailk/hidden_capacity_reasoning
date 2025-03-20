@@ -19,7 +19,7 @@ from hidden_capacity_reasoning.utils import (
     pad_train_examples,
     tokenize_single_turn,
 )
-from datasets import Dataset
+from datasets import Dataset, IterableDataset
 import gc
 import types
 
@@ -51,6 +51,19 @@ from hidden_capacity_reasoning.models import (
     Qwen2ForCausalLMCompressionV2,
     Qwen2ModelEmbedPoolerV2,
 )
+
+from torch.utils.data import Dataset
+
+
+class CustomDataset(Dataset):
+    def __init__(self, dataset):
+        self.dataset = dataset
+
+    def __len__(self):
+        return len(self.dataset)
+
+    def __getitem__(self, idx):
+        return self.dataset[idx]
 
 
 def main():
@@ -92,6 +105,7 @@ def main():
     train_examples = [
         tokenize_single_turn(tokenizer=tokenizer, **item)
         for item in tqdm(dataset["train"].to_list()[:2000])
+        # for item in tqdm(dataset["train"].to_list()[:3])
     ]
 
     prepared_train_examples = []
@@ -107,7 +121,8 @@ def main():
         max([len(item["original_tokens"]) for item in prepared_train_examples]),
     )
 
-    new_dataset = Dataset.from_list(prepared_train_examples)
+    # new_dataset = Dataset.from_list(prepared_train_examples)
+    new_dataset = CustomDataset(prepared_train_examples)
     print(dataset)
 
     def collate_fn(batch):
@@ -123,6 +138,9 @@ def main():
             "original_tokens": padded_batch["original_tokens"]["input_ids"],
             "attention_mask": padded_batch["compressed_input_ids"]["attention_mask"],
             "labels": padded_batch["compressed_input_ids"]["input_ids"],
+            "content_compression_mask": padded_batch["content_compression_mask"][
+                "input_ids"
+            ],
         }
         for key in padded_batch.keys():
             padded_batch[key] = torch.tensor(padded_batch[key])
@@ -134,6 +152,13 @@ def main():
         ]
         for skip_id in skip_ids:
             padded_batch["labels"][padded_batch["labels"] == skip_id] = -100
+        # часть инпута от пользователя
+        last_index = (
+            (padded_batch["content_compression_mask"] == 1).long().nonzero()[-1][1]
+        )
+        padded_batch["labels"][:, :last_index][
+            padded_batch["content_compression_mask"][:, :last_index] == 1
+        ] = -100
         # print(padded_batch)
         return padded_batch
 
