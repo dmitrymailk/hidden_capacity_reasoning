@@ -1,4 +1,10 @@
-from transformers import Qwen2ForCausalLM, Qwen2Model, AutoTokenizer, BitsAndBytesConfig
+from transformers import (
+    Qwen2ForCausalLM,
+    Qwen2Model,
+    AutoTokenizer,
+    BitsAndBytesConfig,
+)
+from transformers.models.qwen2.modeling_qwen2 import Qwen2RMSNorm
 import torch
 from trl import (
     ModelConfig,
@@ -69,6 +75,40 @@ class Qwen2ModelEmbedPoolerV2(Qwen2ModelEmbedPoolerV1):
         self.model = Qwen2Model(config)
         self.lm_head = None
         self.post_init()
+
+
+class Qwen2ModelEmbedPoolerV3(Qwen2ModelEmbedPoolerV1):
+    def __init__(self, config):
+        super().__init__(config)
+        self.model = Qwen2Model(config)
+        self.lm_head = None
+        self.weight_pooler = torch.nn.Linear(
+            config.hidden_size,
+            config.hidden_size,
+            bias=False,
+        )
+
+        self.post_init()
+
+    def forward(self, input_embeds):
+        input_embeds = self.model(
+            inputs_embeds=input_embeds,
+            output_hidden_states=True,
+        )[0]
+        # input_embeds = residual + input_embeds
+        input_embeds = input_embeds.sum(1) / torch.tensor(
+            input_embeds.shape[1],
+            device=input_embeds.device,
+            dtype=input_embeds.dtype,
+        )
+        # print(input_embeds.dtype)
+        input_embeds = input_embeds.unsqueeze(1)
+        # residual = input_embeds
+        input_embeds = input_embeds.reshape(input_embeds.shape[0], 1, -1)
+        input_embeds = self.weight_pooler(input_embeds)
+        # input_embeds += residual
+        # input_embeds = input_embeds.unsqueeze(1)
+        return input_embeds
 
 
 class Qwen2ForCausalLMCompressionV1(Qwen2ForCausalLM):
@@ -269,3 +309,22 @@ class Qwen2ForCausalLMCompressionV2(Qwen2ForCausalLM):
             logits_to_keep,
             **kwargs,
         )
+
+
+class Qwen2ForCausalLMCompressionV3(Qwen2ForCausalLMCompressionV2):
+    def __init__(self, config):
+        super().__init__(config)
+        self.model = Qwen2Model(config)
+        self.vocab_size = config.vocab_size
+        self.lm_head = torch.nn.Linear(
+            config.hidden_size,
+            config.vocab_size,
+            bias=False,
+        )
+
+        self.embed_pooler = Qwen2ModelEmbedPoolerV3(
+            config=config,
+        )
+
+        # Initialize weights and apply final processing
+        self.post_init()

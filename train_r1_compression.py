@@ -50,6 +50,7 @@ from hidden_capacity_reasoning.models import (
     Qwen2ModelEmbedPoolerV1,
     Qwen2ForCausalLMCompressionV2,
     Qwen2ModelEmbedPoolerV2,
+    Qwen2ForCausalLMCompressionV3,
 )
 
 from torch.utils.data import Dataset
@@ -68,8 +69,9 @@ class CustomDataset(Dataset):
 
 def main():
     # model_name = "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
-    model_name = "my_r1_model"
-    model = Qwen2ForCausalLMCompressionV2.from_pretrained(
+    # model_name = "my_r1_model"
+    model_name = "my_r1_model_v3"
+    model = Qwen2ForCausalLMCompressionV3.from_pretrained(
         model_name,
         torch_dtype=torch.bfloat16,
         device_map={"": 0},
@@ -168,7 +170,10 @@ def main():
         lora_dropout=0.0,
         bias="none",
         target_modules=find_all_linear_names_v3(model=model),
-        modules_to_save=["embed_pooler.model.embed_tokens"],
+        modules_to_save=[
+            "embed_pooler.model.embed_tokens",
+            "embed_pooler.weight_pooler",
+        ],
     )
 
     formatted_date = datetime.fromtimestamp(time.time()).strftime(
@@ -210,6 +215,10 @@ def main():
             run_name=formatted_date,
         ),
     )
+
+    for name, param in trainer.model.named_parameters():
+        if param.requires_grad:
+            print(f"Layer: {name}, Requires Gradient: {param.requires_grad}")
     trainer.train()
 
 
