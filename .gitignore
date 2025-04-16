@@ -200,3 +200,4 @@ data
 ip
 test
 my_r1_model*
+!hidden_capacity_reasoning/**/evals/*.json
