@@ -1,1 +1,2 @@
 - https://github.com/EleutherAI/lm-evaluation-harness/blob/main/docs/API_guide.md
+- https://github.com/mlfoundations/evalchemy
