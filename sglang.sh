@@ -1,5 +1,6 @@
 volume=$PWD/data
 model=deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B
+# docker run -ti --rm --gpus all \
 docker run -d -ti --rm --gpus all \
     --shm-size 1g \
     -p 1337:30000 \
@@ -8,4 +9,4 @@ docker run -d -ti --rm --gpus all \
     -w /code \
     --ipc=host \
     lmsysorg/sglang:v0.4.5-cu125 \
-    python3 -m sglang.launch_server --model-path $model --host 0.0.0.0 --port 30000
+    python3 -m sglang.launch_server --model-path $model --host 0.0.0.0 --port 30000 --dp-size 4
