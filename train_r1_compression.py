@@ -85,10 +85,10 @@ def main():
     # dataset = load_dataset("dim/open_orca_4475_DeepSeek-R1-Distill-Qwen-1.5B")
     # dataset = dataset["train"]
     # dataset = dataset.train_test_split(test_size=500, seed=42)
-    dataset = load_dataset("dim/hendrycks_math_train_12k_DeepSeek-R1-Distill-Qwen-1.5B")
+    dataset = load_dataset("dim/hendrycks_math_train_12k_DeepSeek-R1-Distill-Qwen-1.5B_max_len_4096")
 
     dataset = dataset["train"].train_test_split(
-        test_size=120,
+        test_size=250,
         seed=42,
     )
     dataset = dataset['test'].filter(lambda x: x['model_answer'].count('</think>') == 1)
@@ -211,7 +211,7 @@ def main():
             gradient_accumulation_steps=1,
             warmup_steps=5,
             # num_train_epochs=1,  # 90,  # Set this for 1 full training run.
-            num_train_epochs=90,  # Set this for 1 full training run.
+            num_train_epochs=2,  # Set this for 1 full training run.
             # max_steps=10000,
             learning_rate=1e-4,
             # bf16=model.dtype == torch.bfloat16,

@@ -18,3 +18,4 @@ wandb==0.19.8
 flash-attn==2.7.4.post1
 openai==1.75.0
 lm-eval==0.4.8
+tqdm-joblib==0.0.4
