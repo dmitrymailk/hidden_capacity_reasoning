@@ -19,8 +19,8 @@ def model_answer_filter(answer):
     try:
         if "</think>" in answer:
             answer = answer.split("</think>")[1]
-            # answer = re.search(r"\\boxed\{.*\}", answer)
-            answer = re.search(r"\\boxed\{.*\}\}|\\boxed\{.*\}", answer)
+            answer = re.search(r"\\boxed\{.*\}", answer)
+            # answer = re.search(r"\\boxed\{.*\}\}|\\boxed\{.*\}", answer)
             answer = remove_boxed(answer.group(0))
             answer = dataset_answer_filter(answer)
         else:

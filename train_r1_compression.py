@@ -1,6 +1,6 @@
 import os
 
-os.environ["WANDB_PROJECT"] = "hidden_capacity_reasoning"
+os.environ["WANDB_PROJECT"] = "hidden_capacity_reasoning_math_500"
 from transformers import Qwen2ForCausalLM, Qwen2Model, AutoTokenizer, BitsAndBytesConfig
 import torch
 from trl import (
@@ -54,7 +54,9 @@ from hidden_capacity_reasoning.models import (
 )
 
 from torch.utils.data import Dataset
-
+from joblib import Parallel, delayed
+from tqdm.contrib.concurrent import process_map
+from tqdm_joblib import tqdm_joblib
 
 class CustomDataset(Dataset):
     def __init__(self, dataset):
@@ -69,9 +71,8 @@ class CustomDataset(Dataset):
 
 def main():
     # model_name = "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
-    # model_name = "my_r1_model"
-    model_name = "my_r1_model_v3"
-    model = Qwen2ForCausalLMCompressionV3.from_pretrained(
+    model_name = "r1_compressor_v2"
+    model = Qwen2ForCausalLMCompressionV2.from_pretrained(
         model_name,
         torch_dtype=torch.bfloat16,
         device_map={"": 0},
@@ -81,42 +82,58 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model.model.requires_grad_(False)
 
-    # temp_model = Qwen2ModelEmbedPoolerV2.from_pretrained(
-    #     model_name,
-    #     attn_implementation="flash_attention_2",
-    #     torch_dtype=torch.bfloat16,
-    #     device_map={"": 0},
-    #     # quantization_config=BitsAndBytesConfig(load_in_4bit=True),
-    # )
-    # print(model.embed_pooler.load_state_dict(temp_model.state_dict()))
-    # temp_model = temp_model.cpu()
-    # del temp_model
-    # gc.collect()
-    # torch.cuda.empty_cache()
+    # dataset = load_dataset("dim/open_orca_4475_DeepSeek-R1-Distill-Qwen-1.5B")
+    # dataset = dataset["train"]
+    # dataset = dataset.train_test_split(test_size=500, seed=42)
+    dataset = load_dataset("dim/hendrycks_math_train_12k_DeepSeek-R1-Distill-Qwen-1.5B")
 
-    dataset = load_dataset("dim/open_orca_4475_DeepSeek-R1-Distill-Qwen-1.5B")
-    dataset = dataset["train"]
-    dataset = dataset.train_test_split(test_size=500, seed=42)
+    dataset = dataset["train"].train_test_split(
+        test_size=120,
+        seed=42,
+    )
+    dataset = dataset['test'].filter(lambda x: x['model_answer'].count('</think>') == 1)
+    dataset = dataset.rename_columns({
+        'problem': 'question',
+        'answer': 'gold_answer',
+        'model_answer': 'answer',
+    })
+    dataset = dataset.remove_columns(
+        [item for item in dataset.column_names if not item in ["question", "answer"]]
+    )
 
     # test pass
     tokenize_single_turn(
-        question=dataset["train"][0]["question"],
-        answer=dataset["train"][0]["answer"],
+        question=dataset[0]["question"],
+        answer=dataset[0]["answer"],
         tokenizer=tokenizer,
     )
     train_examples = [
         tokenize_single_turn(tokenizer=tokenizer, **item)
-        for item in tqdm(dataset["train"].to_list()[:2000])
-        # for item in tqdm(dataset["train"].to_list()[:3])
+        for item in tqdm(dataset.to_list())
+        # for item in tqdm(dataset.to_list()[:2000])
+        # for item in tqdm(dataset.to_list()[:3])
     ]
 
     prepared_train_examples = []
-    for item in tqdm(train_examples):
-        for example in generate_train_examples(
+    # for item in tqdm(train_examples):
+    #     for example in generate_train_examples(
+    #         dataset_batch=[item],
+    #         window_size=WINDOW_SIZE,
+    #     ):
+    #         prepared_train_examples.append(example)
+    with tqdm_joblib(
+        tqdm(desc="My calculation", total=len(train_examples))
+    ) as progress_bar:
+        examples = Parallel(n_jobs=-1)(delayed(generate_train_examples)(
             dataset_batch=[item],
-            window_size=WINDOW_SIZE,
-        ):
-            prepared_train_examples.append(example)
+            window_size=WINDOW_SIZE
+        ) for item in train_examples)
+    # train_examples = [[item] for item in train_examples]
+    # examples = process_map(generate_train_examples, train_examples, max_workers=120, chunksize=1)
+    for example in examples:
+        for item in  example:
+            prepared_train_examples.append(item)
+    
 
     print(
         "max_len",
@@ -191,7 +208,7 @@ def main():
         peft_config=peft_config,
         args=SFTConfig(
             per_device_train_batch_size=1,
-            gradient_accumulation_steps=4,
+            gradient_accumulation_steps=1,
             warmup_steps=5,
             # num_train_epochs=1,  # 90,  # Set this for 1 full training run.
             num_train_epochs=90,  # Set this for 1 full training run.

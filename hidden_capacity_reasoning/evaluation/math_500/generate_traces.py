@@ -1,5 +1,5 @@
 from more_itertools import chunked
-from tqdm.notebook import tqdm
+from tqdm import tqdm
 import json
 
 import concurrent
@@ -9,6 +9,7 @@ from datasets import Dataset
 
 logging.getLogger("openai").setLevel(logging.ERROR)
 
+MAX_TOKENS = 4096*2
 
 # https://docs.together.ai/docs/prompting-deepseek-r1
 def sglang_generate(prompt: str):
@@ -26,7 +27,7 @@ def sglang_generate(prompt: str):
             },
         ],
         temperature=0.6,
-        max_tokens=32768,
+        max_tokens=MAX_TOKENS,
         top_p=0.95,
     )
 
@@ -70,5 +71,5 @@ if __name__ == "__main__":
         dataset_with_answers.extend(batch)
     
     dataset_with_answers = Dataset.from_list(dataset_with_answers)
-    dataset_with_answers.push_to_hub('dim/hendrycks_math_train_12k_DeepSeek-R1-Distill-Qwen-1.5B')
+    dataset_with_answers.push_to_hub(f'dim/hendrycks_math_train_12k_DeepSeek-R1-Distill-Qwen-1.5B_max_len_{MAX_TOKENS}')
     
