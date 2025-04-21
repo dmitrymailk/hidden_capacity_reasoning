@@ -9,4 +9,5 @@ docker run -d -ti --rm --gpus all \
     -w /code \
     --ipc=host \
     lmsysorg/sglang:v0.4.5-cu125 \
-    python3 -m sglang.launch_server --model-path $model --host 0.0.0.0 --port 30000 --dp-size 4
+    python3 -m sglang.launch_server --model-path $model --host 0.0.0.0 --port 30000
+    # python3 -m sglang.launch_server --model-path $model --host 0.0.0.0 --port 30000 --dp-size 4
