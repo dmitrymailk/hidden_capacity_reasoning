@@ -237,13 +237,14 @@ class Qwen2ForCausalLMCompressionV2(Qwen2ForCausalLM):
             compressed_tokens_torch = kwargs["compressed_input_ids"].to(
                 self.model.device
             )
-
             # получаем оригинальные эмбединги из рассуждающей модели
-            original_embeds = self.model.get_input_embeddings()(original_tokens_torch)
+            original_embeds = self.model.get_input_embeddings()(
+                original_tokens_torch
+            ).detach()
             # получаем эмбединги конечной формы которую мы будем моделировать
             compressed_embeds_template = self.model.get_input_embeddings()(
                 compressed_tokens_torch
-            )
+            ).detach()
             # создаем маску из токенов которые были помечены на сжатие
             tokens_for_compression_mask = replaced_tokens_torch == TEXT_TOKEN_ID
             # получаем маску итоговых сжатых токенов куда нам нужно будет положить
