@@ -203,3 +203,4 @@ my_r1_model*
 !hidden_capacity_reasoning/**/evals/*.json
 r1_compressor_*
 temp
+!hidden_capacity_reasoning/evaluation/math_500/evals/compression_tests/*

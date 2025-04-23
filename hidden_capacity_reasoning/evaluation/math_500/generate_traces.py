@@ -48,7 +48,7 @@ def batch_generation_sglang(prompts):
 if __name__ == "__main__":
 
     dataset = open(
-        "hidden_capacity_reasoning/evaluation/math_500/datasets/train.jsonl"
+        "hidden_capacity_reasoning/evaluation/math_500/datasets/test.jsonl"
     ).readlines()
     
     dataset = [json.loads(item) for item in dataset]
