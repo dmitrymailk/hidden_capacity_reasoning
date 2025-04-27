@@ -88,7 +88,8 @@ def main():
     dataset = load_dataset("dim/hendrycks_math_train_12k_DeepSeek-R1-Distill-Qwen-1.5B_max_len_4096")
 
     dataset = dataset["train"].train_test_split(
-        test_size=250,
+        # test_size=250,
+        test_size=1,
         seed=42,
     )
     dataset = dataset['test'].filter(lambda x: x['model_answer'].count('</think>') == 1)

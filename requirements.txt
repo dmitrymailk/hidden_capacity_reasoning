@@ -1,5 +1,5 @@
-ipywidgets
-ipykernel
+ipywidgets==8.1.5
+ipykernel==6.29.5
 bitsandbytes==0.45.2
 accelerate==1.4.0
 xformers==0.0.29

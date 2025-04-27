@@ -26,9 +26,10 @@ def sglang_generate(prompt: str):
                 "content": prompt,
             },
         ],
-        temperature=0.6,
+        # temperature=0.6,
+        temperature=0.0,
         max_tokens=MAX_TOKENS,
-        top_p=0.95,
+        # top_p=0.95,
     )
 
     model_responce = response.choices[0].message.content
@@ -72,5 +73,5 @@ if __name__ == "__main__":
     
     dataset_with_answers = Dataset.from_list(dataset_with_answers)
     # dataset_with_answers.push_to_hub(f'dim/hendrycks_math_train_12k_DeepSeek-R1-Distill-Qwen-1.5B_max_len_{MAX_TOKENS}')
-    dataset_with_answers.push_to_hub(f'dim/hendrycks_math_test_500_DeepSeek-R1-Distill-Qwen-1.5B_max_len_{MAX_TOKENS}')
+    dataset_with_answers.push_to_hub(f'dim/hendrycks_math_test_500_DeepSeek-R1-Distill-Qwen-1.5B_max_len_{MAX_TOKENS}_greedy')
     
