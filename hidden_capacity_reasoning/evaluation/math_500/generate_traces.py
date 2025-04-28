@@ -58,7 +58,8 @@ if __name__ == "__main__":
         "hidden_capacity_reasoning/evaluation/math_500/math_500_prompt"
     ).read()
 
-    batch_size = 128 * 2
+    # batch_size = 128 * 2
+    batch_size = 64*2
     new_dataset = dataset
     dataset_with_answers = []
     
