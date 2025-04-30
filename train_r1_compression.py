@@ -208,7 +208,8 @@ def main():
         peft_config=peft_config,
         args=SFTConfig(
             per_device_train_batch_size=1,
-            gradient_accumulation_steps=4,
+            gradient_accumulation_steps=1,
+            # gradient_accumulation_steps=4,
             warmup_steps=1,
             # num_train_epochs=1,  # 90,  # Set this for 1 full training run.
             num_train_epochs=2,  # Set this for 1 full training run.
