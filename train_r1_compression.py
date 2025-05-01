@@ -97,6 +97,10 @@ def main():
         "dim/hendrycks_math_train_1k_DeepSeek-R1-Distill-Qwen-1.5B_max_len_4096_greedy"
     )
 
+    base_prompt = open(
+        "/code/hidden_capacity_reasoning/evaluation/math_500/math_500_prompt"
+    ).read()
+
     dataset = dataset["train"].train_test_split(
         test_size=350,
         # test_size=1,
@@ -129,12 +133,16 @@ def main():
 
     # test pass
     tokenize_single_turn(
-        question=dataset[0]["question"],
+        question=base_prompt.format(question=dataset[0]["question"]),
         answer=dataset[0]["answer"],
         tokenizer=tokenizer,
     )
     train_examples = [
-        tokenize_single_turn(tokenizer=tokenizer, **item)
+        tokenize_single_turn(
+            tokenizer=tokenizer,
+            question=base_prompt.format(question=item["question"]),
+            answer=item["answer"],
+        )
         for item in tqdm(dataset.to_list())
         # for item in tqdm(dataset.to_list()[:2000])
         # for item in tqdm(dataset.to_list()[:1])
