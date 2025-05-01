@@ -57,6 +57,12 @@ from torch.utils.data import Dataset
 from joblib import Parallel, delayed
 from tqdm.contrib.concurrent import process_map
 from tqdm_joblib import tqdm_joblib
+from lm_eval.tasks.hendrycks_math.utils import strip_string, remove_boxed, is_equiv
+from hidden_capacity_reasoning.evaluation.math_500.utils import (
+    dataset_answer_filter,
+    model_answer_filter,
+)
+import datasets
 
 
 class CustomDataset(Dataset):
@@ -92,11 +98,24 @@ def main():
     )
 
     dataset = dataset["train"].train_test_split(
-        test_size=250,
+        test_size=350,
         # test_size=1,
         seed=42,
     )
     dataset = dataset["test"].filter(lambda x: x["model_answer"].count("</think>") == 1)
+    # correct_dataset = []
+
+    # for pos, item in enumerate(dataset):
+    #     try:
+    #         answer = dataset_answer_filter(item["answer"])
+    #         model_answer = model_answer_filter(item["model_answer"])
+    #         # print(answer, model_answer)
+    #         # break
+    #         if is_equiv(answer, model_answer):
+    #             correct_dataset.append(item)
+    #     except:
+    #         pass
+    # dataset = datasets.Dataset.from_list(correct_dataset)
     dataset = dataset.rename_columns(
         {
             "problem": "question",
