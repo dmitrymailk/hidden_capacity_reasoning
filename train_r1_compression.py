@@ -194,8 +194,8 @@ def main():
         skip_ids = [
             TEXT_TOKEN_ID,
             EOS_TOKEN_ID,
-            VISION_START,
-            VISION_END,
+            # VISION_START,
+            # VISION_END,
         ]
         for skip_id in skip_ids:
             padded_batch["labels"][padded_batch["labels"] == skip_id] = -100
