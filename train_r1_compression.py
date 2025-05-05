@@ -172,6 +172,7 @@ def main():
     print(dataset)
 
     def collate_fn(batch):
+        # только для batch=1
         padded_batch = pad_train_examples(
             train_examples=batch,
             tokenizer=tokenizer,
@@ -202,8 +203,16 @@ def main():
         last_index = (
             (padded_batch["content_compression_mask"] == 1).long().nonzero()[-1][1]
         )
-        padded_batch["labels"][:, :last_index][
-            padded_batch["content_compression_mask"][:, :last_index] == 1
+        # print("======")
+        # print((padded_batch["content_compression_mask"] == 1).long().nonzero())
+        # print((padded_batch["content_compression_mask"] == 1).long().nonzero()[-1])
+        # print((padded_batch["content_compression_mask"] == 1).long().nonzero()[-1][1])
+        # print("======")
+        # print("======")
+        # print("======")
+        # print("======")
+        padded_batch["labels"][:, : last_index + 1][
+            padded_batch["content_compression_mask"][:, : last_index + 1] == 1
         ] = -100
         # print(padded_batch)
         return padded_batch
