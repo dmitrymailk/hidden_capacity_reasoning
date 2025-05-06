@@ -1,6 +1,8 @@
 import os
 
 os.environ["WANDB_PROJECT"] = "hidden_capacity_reasoning_math_500"
+os.environ["TOKENIZERS_PARALLELISM"] = "true"
+
 from transformers import Qwen2ForCausalLM, Qwen2Model, AutoTokenizer, BitsAndBytesConfig
 import torch
 from trl import (
@@ -51,6 +53,7 @@ from hidden_capacity_reasoning.models import (
     Qwen2ForCausalLMCompressionV2,
     Qwen2ModelEmbedPoolerV2,
     Qwen2ForCausalLMCompressionV3,
+    Qwen2ForCausalLMCompressionV5,
 )
 
 from torch.utils.data import Dataset
@@ -78,8 +81,8 @@ class CustomDataset(Dataset):
 
 def main():
     # model_name = "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
-    model_name = "r1_compressor_v2"
-    model = Qwen2ForCausalLMCompressionV2.from_pretrained(
+    model_name = "r1_compressor_v5"
+    model = Qwen2ForCausalLMCompressionV5.from_pretrained(
         model_name,
         torch_dtype=torch.bfloat16,
         device_map={"": 0},
@@ -217,31 +220,31 @@ def main():
         # print(padded_batch)
         return padded_batch
 
-    peft_config = LoraConfig(
-        r=16,
-        lora_alpha=16,
-        lora_dropout=0.0,
-        bias="none",
-        target_modules=find_all_linear_names_v3(model=model),
-        modules_to_save=[
-            "embed_pooler.model.embed_tokens",
-            "embed_pooler.weight_pooler",
-        ],
-    )
+    # peft_config = LoraConfig(
+    #     r=16,
+    #     lora_alpha=16,
+    #     lora_dropout=0.0,
+    #     bias="none",
+    #     target_modules=find_all_linear_names_v3(model=model),
+    #     modules_to_save=[
+    #         "embed_pooler.model.embed_tokens",
+    #         "embed_pooler.weight_pooler",
+    #     ],
+    # )
 
     formatted_date = datetime.fromtimestamp(time.time()).strftime(
         "%Y_%m_%d_%H_%M_%S_%f"
     )
 
-    peft_model = get_peft_model(model, peft_config)
-    peft_model.print_trainable_parameters()
+    # peft_model = get_peft_model(model, peft_config)
+    # peft_model.print_trainable_parameters()
 
     trainer = SFTTrainer(
         model=model,
         tokenizer=tokenizer,
         train_dataset=new_dataset,
         data_collator=collate_fn,
-        peft_config=peft_config,
+        # peft_config=peft_config,
         args=SFTConfig(
             per_device_train_batch_size=1,
             gradient_accumulation_steps=1,
