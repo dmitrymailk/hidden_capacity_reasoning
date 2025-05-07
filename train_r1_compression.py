@@ -88,6 +88,7 @@ def main():
     device = "cuda"
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model.model.requires_grad_(False)
+    model.lm_head.requires_grad_(False)
 
     # dataset = load_dataset("dim/open_orca_4475_DeepSeek-R1-Distill-Qwen-1.5B")
     # dataset = dataset["train"]

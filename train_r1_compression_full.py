@@ -3,7 +3,13 @@ import os
 os.environ["WANDB_PROJECT"] = "hidden_capacity_reasoning_math_500"
 os.environ["TOKENIZERS_PARALLELISM"] = "true"
 
-from transformers import Qwen2ForCausalLM, Qwen2Model, AutoTokenizer, BitsAndBytesConfig
+from transformers import (
+    Qwen2ForCausalLM,
+    Qwen2Model,
+    AutoTokenizer,
+    BitsAndBytesConfig,
+    Qwen2Config,
+)
 import torch
 from trl import (
     ModelConfig,
@@ -82,15 +88,29 @@ class CustomDataset(Dataset):
 def main():
     # model_name = "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
     model_name = "r1_compressor_v5"
-    model = Qwen2ForCausalLMCompressionV5.from_pretrained(
-        model_name,
-        torch_dtype=torch.bfloat16,
-        device_map={"": 0},
-        attn_implementation="flash_attention_2",
+    # model = Qwen2ForCausalLMCompressionV5.from_pretrained(
+    #     model_name,
+    #     torch_dtype=torch.bfloat16,
+    #     device_map={"": 0},
+    #     attn_implementation="flash_attention_2",
+    # )
+    config = Qwen2Config.from_pretrained("deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B")
+    pooler_config = Qwen2Config.from_pretrained(
+        "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
     )
+    pooler_config.num_hidden_layers = 8
+    config.pooler_config = pooler_config
     device = "cuda"
     tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model = Qwen2ForCausalLMCompressionV5.from_pretrained(
+        "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
+        config=config,
+        attn_implementation="flash_attention_2",
+        torch_dtype=torch.bfloat16,
+    )
+
     model.model.requires_grad_(False)
+    model.lm_head.requires_grad_(False)
 
     # dataset = load_dataset("dim/open_orca_4475_DeepSeek-R1-Distill-Qwen-1.5B")
     # dataset = dataset["train"]
