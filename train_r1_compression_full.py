@@ -86,8 +86,8 @@ class CustomDataset(Dataset):
 
 
 def main():
-    # model_name = "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
-    model_name = "r1_compressor_v5"
+    model_name = "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
+    # model_name = "r1_compressor_v5"
     # model = Qwen2ForCausalLMCompressionV5.from_pretrained(
     #     model_name,
     #     torch_dtype=torch.bfloat16,
@@ -98,7 +98,7 @@ def main():
     pooler_config = Qwen2Config.from_pretrained(
         "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
     )
-    pooler_config.num_hidden_layers = 8
+    pooler_config.num_hidden_layers = 2
     config.pooler_config = pooler_config
     device = "cuda"
     tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -267,7 +267,7 @@ def main():
         # peft_config=peft_config,
         args=SFTConfig(
             per_device_train_batch_size=1,
-            gradient_accumulation_steps=1,
+            gradient_accumulation_steps=32,
             # gradient_accumulation_steps=4,
             warmup_steps=1,
             # num_train_epochs=1,  # 90,  # Set this for 1 full training run.
@@ -288,7 +288,7 @@ def main():
             remove_unused_columns=False,
             dataset_kwargs={"skip_prepare_dataset": True},
             gradient_checkpointing=True,
-            save_steps=10000,
+            save_steps=1000,
             run_name=formatted_date,
         ),
     )
