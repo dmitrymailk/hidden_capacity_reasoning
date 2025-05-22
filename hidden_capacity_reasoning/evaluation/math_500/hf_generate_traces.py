@@ -35,7 +35,7 @@ if __name__ == "__main__":
     dataset = open(
         # "hidden_capacity_reasoning/evaluation/math_500/datasets/test.jsonl"
         "hidden_capacity_reasoning/evaluation/math_500/datasets/train.jsonl"
-    ).readlines()[:1000]
+    ).readlines()#[:1000]
 
     dataset = [json.loads(item) for item in dataset]
 
