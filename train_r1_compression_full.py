@@ -87,18 +87,11 @@ class CustomDataset(Dataset):
 
 def main():
     model_name = "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
-    # model_name = "r1_compressor_v5"
-    # model = Qwen2ForCausalLMCompressionV5.from_pretrained(
-    #     model_name,
-    #     torch_dtype=torch.bfloat16,
-    #     device_map={"": 0},
-    #     attn_implementation="flash_attention_2",
-    # )
     config = Qwen2Config.from_pretrained("deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B")
     pooler_config = Qwen2Config.from_pretrained(
         "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
     )
-    pooler_config.num_hidden_layers = 2
+    pooler_config.num_hidden_layers = 8
     config.pooler_config = pooler_config
     device = "cuda"
     tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -116,8 +109,11 @@ def main():
     # dataset = dataset["train"]
     # dataset = dataset.train_test_split(test_size=500, seed=42)
     # dataset = load_dataset("dim/hendrycks_math_train_12k_DeepSeek-R1-Distill-Qwen-1.5B_max_len_4096")
+    # dataset = load_dataset(
+    #     "dim/hendrycks_math_train_1k_DeepSeek-R1-Distill-Qwen-1.5B_max_len_4096_greedy"
+    # )
     dataset = load_dataset(
-        "dim/hendrycks_math_train_1k_DeepSeek-R1-Distill-Qwen-1.5B_max_len_4096_greedy"
+        "dim/hendrycks_math_train_12k_DeepSeek-R1-Distill-Qwen-1.5B_max_len_4096_greedy"
     )
 
     base_prompt = open(
@@ -125,7 +121,7 @@ def main():
     ).read()
 
     dataset = dataset["train"].train_test_split(
-        test_size=350,
+        test_size=11999,
         # test_size=1,
         seed=42,
     )
@@ -176,8 +172,13 @@ def main():
         tqdm(desc="My calculation", total=len(train_examples))
     ) as progress_bar:
         examples = Parallel(n_jobs=-1)(
+            # delayed(generate_train_examples)(
+            #     dataset_batch=[item], window_size=WINDOW_SIZE
+            # )
             delayed(generate_train_examples)(
-                dataset_batch=[item], window_size=WINDOW_SIZE
+                dataset_batch=[item],
+                window_size=WINDOW_SIZE,
+                train_examples_skip=20,
             )
             for item in train_examples
         )
@@ -288,7 +289,7 @@ def main():
             remove_unused_columns=False,
             dataset_kwargs={"skip_prepare_dataset": True},
             gradient_checkpointing=True,
-            save_steps=1000,
+            save_steps=2000,
             run_name=formatted_date,
         ),
     )

@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 from more_itertools import chunked, collapse
+import gc
 
 TEXT_TOKEN_ID = 151662
 EOS_TOKEN_ID = 151643
@@ -91,7 +92,7 @@ def generate_train_examples(
     dataset_batch: list,
     text_token_id: int = TEXT_TOKEN_ID,
     window_size: int = WINDOW_SIZE,
-    train_examples_amount: int = -1,
+    train_examples_skip: int = -1,
 ):
     """
     1 - часть вопроса
@@ -256,6 +257,15 @@ def generate_train_examples(
                         "content_compression_mask": tokens["content_compression_mask"],
                     }
                 )
+
+    if train_examples_skip != -1:
+        train_examples = [
+            item
+            for pos, item in enumerate(train_examples)
+            if pos % train_examples_skip == 0
+        ]
+        gc.collect()
+
     return train_examples
 
 
