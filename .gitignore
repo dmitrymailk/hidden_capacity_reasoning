@@ -205,3 +205,4 @@ r1_compressor_*
 temp
 !hidden_capacity_reasoning/evaluation/math_500/evals/compression_tests/*
 models
+multiple_tokens
