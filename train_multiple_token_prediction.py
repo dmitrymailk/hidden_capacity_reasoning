@@ -36,23 +36,12 @@ from peft import (
 from hidden_capacity_reasoning.utils import (
     EOS_TOKEN_ID,
     TEXT_TOKEN_ID,
-    WINDOW_SIZE,
-    VISION_START,
-    VISION_END,
-    find_all_linear_names_v3,
 )
 
 import time
 from datetime import datetime
 
 
-from hidden_capacity_reasoning.models import (
-    Qwen2ForCausalLMCompressionV1,
-    Qwen2ModelEmbedPoolerV1,
-    Qwen2ForCausalLMCompressionV2,
-    Qwen2ModelEmbedPoolerV2,
-    Qwen2ForCausalLMCompressionV3,
-)
 from transformers import AutoModelForCausalLM
 
 from torch.utils.data import Dataset
@@ -133,7 +122,7 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained(model_name)
 
     dataset = load_dataset(
-        "dim/hendrycks_math_train_1k_DeepSeek-R1-Distill-Qwen-1.5B_max_len_4096_greedy"
+        "dim/hendrycks_math_train_12k_DeepSeek-R1-Distill-Qwen-1.5B_max_len_4096_greedy"
     )
 
     base_prompt = open(
@@ -141,7 +130,7 @@ def main():
     ).read()
 
     dataset = dataset["train"].train_test_split(
-        test_size=350,
+        test_size=9000,
         # test_size=1,
         seed=42,
     )
@@ -195,21 +184,22 @@ def main():
     print(dataset)
 
     def collate_fn(batch):
-        # только для batch=1
-        inputs_str = [tokenizer.decode(item["input_ids"]) for item in batch]
-        labels = [tokenizer.decode(item["labels"]) for item in batch]
+        inputs_str = [{"input_ids": item["input_ids"]} for item in batch]
+        labels = [{"input_ids": item["labels"]} for item in batch]
         # batch
-        padded_batch = tokenizer(
+        padded_batch = tokenizer.pad(
             inputs_str,
             padding="longest",
             return_tensors="pt",
+            pad_to_multiple_of=8,
         )
-        labels = tokenizer(
+        labels_new = tokenizer.pad(
             labels,
             padding="longest",
             return_tensors="pt",
+            pad_to_multiple_of=8,
         )
-        padded_batch["labels"] = labels["input_ids"]
+        padded_batch["labels"] = labels_new["input_ids"]
 
         skip_ids = [
             TEXT_TOKEN_ID,
@@ -251,7 +241,7 @@ def main():
         peft_config=peft_config,
         args=SFTConfig(
             per_device_train_batch_size=1,
-            gradient_accumulation_steps=2,
+            gradient_accumulation_steps=4,
             # gradient_accumulation_steps=4,
             warmup_steps=1,
             # num_train_epochs=1,  # 90,  # Set this for 1 full training run.
@@ -262,7 +252,7 @@ def main():
             bf16=True,
             # fp16=model.dtype == torch.float16,
             logging_steps=8,
-            optim="adamw_8bit",
+            optim="adamw_torch_fused",
             weight_decay=0.01,
             lr_scheduler_type="linear",
             seed=3407,
@@ -272,7 +262,7 @@ def main():
             remove_unused_columns=False,
             dataset_kwargs={"skip_prepare_dataset": True},
             gradient_checkpointing=True,
-            save_steps=5000,
+            save_steps=5000 * 2,
             run_name=formatted_date,
         ),
     )
