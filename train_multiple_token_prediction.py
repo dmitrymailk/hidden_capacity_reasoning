@@ -271,11 +271,11 @@ def main():
             "q_proj",
             "k_proj",
             "v_proj",
-            # "out_proj",
+            "out_proj",
         ],
-        modules_to_save=[
-            "embed_tokens",
-        ],
+        # modules_to_save=[
+        #     "embed_tokens",
+        # ],
     )
 
     formatted_date = datetime.fromtimestamp(time.time()).strftime(
@@ -295,11 +295,11 @@ def main():
             per_device_train_batch_size=1,
             gradient_accumulation_steps=4,
             # gradient_accumulation_steps=4,
-            warmup_steps=1,
+            warmup_steps=2000,
             # num_train_epochs=1,  # 90,  # Set this for 1 full training run.
             num_train_epochs=2,  # Set this for 1 full training run.
             # max_steps=10000,
-            learning_rate=1e-4,
+            learning_rate=1e-5,
             # bf16=model.dtype == torch.bfloat16,
             bf16=True,
             # fp16=model.dtype == torch.float16,
