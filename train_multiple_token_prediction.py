@@ -163,6 +163,58 @@ def multiple_token_prediction_data_v2(
     return tokens_dataset
 
 
+def multiple_token_prediction_data_v3(
+    tokenized_turn,
+    block_size=None,
+):
+    """
+    последовательность заканчивается после маскированных токенов
+    моделируются только маскированные токены
+    """
+    for key in tokenized_turn.keys():
+        tokenized_turn[key] = torch.tensor(tokenized_turn[key])
+
+    content_compression_mask = tokenized_turn["content_compression_mask"]
+
+    input_part_end = (content_compression_mask == 0).nonzero()[-3][0]
+
+    think_block_size = tokenized_turn["input_ids"].shape[0] - input_part_end - 1
+    block_mask = torch.ones(think_block_size)
+
+    original_input_ids = tokenized_turn["input_ids"].clone()
+    tokens_dataset = []
+    for block_pos in range(1, block_mask.shape[0] // block_size + 2):
+        train_block_size = block_pos * block_size
+        # temp_mask_1 = torch.ones(think_block_size)
+        temp_block_mask = block_mask.clone()
+        temp_block_mask[train_block_size:] = block_size
+
+        if block_pos > 1:
+            temp_block_mask[: (block_pos - 1) * block_size] = block_size
+
+        temp_input_ids = original_input_ids.clone()
+        temp_input_ids[input_part_end + 1 : input_part_end + 1 + think_block_size][
+            temp_block_mask != block_size
+        ] = TEXT_TOKEN_ID
+        temp_input_ids = temp_input_ids[: input_part_end + 1 + train_block_size]
+
+        labels = tokenized_turn["input_ids"].clone()
+        labels[content_compression_mask == 1] = TEXT_TOKEN_ID
+        labels = labels[: input_part_end + 1 + train_block_size]
+        labels[:-block_size] = TEXT_TOKEN_ID
+        tokens_dataset.append(
+            {
+                "input_ids": temp_input_ids.tolist(),
+                "labels": labels.tolist(),
+            }
+        )
+
+    del temp_input_ids
+    del labels
+    gc.collect()
+    return tokens_dataset
+
+
 def main():
     model_name = "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
     model = AutoModelForCausalLM.from_pretrained(
@@ -221,7 +273,7 @@ def main():
         tqdm(desc="My calculation", total=len(train_examples))
     ) as progress_bar:
         examples = Parallel(n_jobs=-1)(
-            delayed(multiple_token_prediction_data_v2)(
+            delayed(multiple_token_prediction_data_v3)(
                 tokenized_turn=tokenized_turn,
                 block_size=BLOCK_SIZE,
             )
@@ -295,7 +347,7 @@ def main():
             per_device_train_batch_size=1,
             gradient_accumulation_steps=4,
             # gradient_accumulation_steps=4,
-            warmup_steps=2000,
+            warmup_steps=1,
             # num_train_epochs=1,  # 90,  # Set this for 1 full training run.
             num_train_epochs=2,  # Set this for 1 full training run.
             # max_steps=10000,
